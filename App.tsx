@@ -33,7 +33,6 @@ import AccessButton from './components/AccessButton';
 import GripVisualizer from './components/GripVisualizer';
 import StatusCard from './components/StatusCard';
 import { speak } from './utils/speech';
-import { getWalkingDirections } from './services/geminiService';
 
 const App: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>(Screen.HOME);
@@ -54,6 +53,31 @@ const App: React.FC = () => {
     if (currentScreen === Screen.EMERGENCY) speak("紧急模式已激活");
   }, [currentScreen]);
 
+  const generateMockDirections = (destination: string): NavigationStep[] => {
+    const routes = [
+      [
+        { instruction: "前方路口向左转，进入人民路。", distance: "120米", direction: "left" as const },
+        { instruction: "沿人民路直行。", distance: "300米", direction: "straight" as const },
+        { instruction: "在第二个红绿灯处向右转，进入中山大道。", distance: "50米", direction: "right" as const },
+        { instruction: `您已到达目的地附近：${destination}。`, distance: "终点", direction: "arrive" as const },
+      ],
+      [
+        { instruction: "沿当前道路直行，通过人行横道。", distance: "80米", direction: "straight" as const },
+        { instruction: "在地铁站 C 口前向右转。", distance: "200米", direction: "right" as const },
+        { instruction: `继续前行，您的目的地 ${destination} 就在左侧。`, distance: "50米", direction: "left" as const },
+        { instruction: `您已到达目的地：${destination}。`, distance: "终点", direction: "arrive" as const },
+      ],
+      [
+        { instruction: "请注意台阶，下楼后向左转。", distance: "30米", direction: "left" as const },
+        { instruction: "穿过广场，保持直行。", distance: "250米", direction: "straight" as const },
+        { instruction: "在公交站牌后向右转。", distance: "100米", direction: "right" as const },
+        { instruction: `导航结束，您已到达 ${destination}。`, distance: "终点", direction: "arrive" as const },
+      ]
+    ];
+    const routeIndex = destination.length % routes.length;
+    return routes[routeIndex];
+  };
+
   const handleStartNavigation = async (dest?: string) => {
     const target = dest || destinationInput;
     if (!target) {
@@ -63,26 +87,20 @@ const App: React.FC = () => {
     
     setNavError(null);
     setIsLoading(true);
-    const data = await getWalkingDirections(target);
+
+    // Simulate a short delay for a better UX
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const data = generateMockDirections(target);
     setIsLoading(false);
 
-    if (data.error) {
-        let errorMessage = "无法获取路线，请稍后重试。";
-        if (data.error === "API_KEY_MISSING") {
-            errorMessage = "导航服务未配置，请检查 API 密钥。";
-        }
-        setNavError(errorMessage);
-        speak(errorMessage);
-        return;
-    }
-    
-    if (data && data.steps && data.steps.length > 0) {
-        setNavSteps(data.steps);
+    if (data && data.length > 0) {
+        setNavSteps(data);
         setCurrentStepIndex(0);
         setCurrentScreen(Screen.NAVIGATION_ACTIVE);
-        triggerGripFeedback(data.steps[0].direction);
+        triggerGripFeedback(data[0].direction);
     } else {
-        const fallbackError = "无法获取路线";
+        const fallbackError = "无法规划路线";
         setNavError(fallbackError);
         speak(fallbackError);
     }
