@@ -2,8 +2,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 let ai: GoogleGenAI | null = null;
 
-// Lazy initialization of the GoogleGenAI client
-function getAiInstance(): GoogleGenAI {
+// Lazy initialization of the GoogleGenAI client, returns null if key is missing
+function getAiInstance(): GoogleGenAI | null {
     if (ai) {
         return ai;
     }
@@ -11,19 +11,29 @@ function getAiInstance(): GoogleGenAI {
     const apiKey = process.env.API_KEY;
 
     if (!apiKey) {
-        // This will prevent the app from crashing on load if the key is missing on Vercel.
-        // The error will only be thrown when an API call is attempted.
         console.error("API_KEY environment variable not found. AI features will be disabled.");
-        throw new Error("API_KEY environment variable not found.");
+        return null;
     }
 
     ai = new GoogleGenAI({ apiKey });
     return ai;
 }
 
+const mockDirections = {
+    steps: [
+        { instruction: "向前直行前往目的地。", distance: "100米", direction: "straight" },
+        { instruction: "导航数据暂时不可用。", distance: "0米", direction: "arrive" }
+    ]
+};
+
 export const getWalkingDirections = async (destination: string): Promise<any> => {
+  const genAI = getAiInstance();
+  
+  if (!genAI) {
+      return { ...mockDirections, error: "API_KEY_MISSING" };
+  }
+
   try {
-    const genAI = getAiInstance();
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `我是一名视障用户，正步行前往：${destination}。请提供3-5条清晰、简单的步行导航指令，模拟从我当前位置出发（假设一个通用的城市环境）。请用中文回答。`,
@@ -52,18 +62,16 @@ export const getWalkingDirections = async (destination: string): Promise<any> =>
     return JSON.parse(response.text || '{"steps": []}');
   } catch (error) {
     console.error("Gemini Error:", error);
-    return {
-        steps: [
-            { instruction: "向前直行前往目的地。", distance: "100米", direction: "straight" },
-            { instruction: "导航数据暂时不可用。", distance: "0米", direction: "arrive" }
-        ]
-    };
+    return { ...mockDirections, error: "API_CALL_FAILED" };
   }
 };
 
 export const getVisualDescription = async (context: string): Promise<string> => {
+   const genAI = getAiInstance();
+   if (!genAI) {
+       return "服务未配置。";
+   }
    try {
-    const genAI = getAiInstance();
     const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `根据这个上下文为盲人用户描述周围环境：${context}。请用中文回答，保持在20个字以内。`,

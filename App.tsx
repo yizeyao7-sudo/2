@@ -43,6 +43,7 @@ const App: React.FC = () => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [gripState, setGripState] = useState<GripState>(GripState.IDLE);
+  const [navError, setNavError] = useState<string | null>(null);
 
   // Settings state
   const [volume, setVolume] = useState(50);
@@ -60,8 +61,20 @@ const App: React.FC = () => {
         return;
     }
     
+    setNavError(null);
     setIsLoading(true);
     const data = await getWalkingDirections(target);
+    setIsLoading(false);
+
+    if (data.error) {
+        let errorMessage = "无法获取路线，请稍后重试。";
+        if (data.error === "API_KEY_MISSING") {
+            errorMessage = "导航服务未配置，请检查 API 密钥。";
+        }
+        setNavError(errorMessage);
+        speak(errorMessage);
+        return;
+    }
     
     if (data && data.steps && data.steps.length > 0) {
         setNavSteps(data.steps);
@@ -69,9 +82,10 @@ const App: React.FC = () => {
         setCurrentScreen(Screen.NAVIGATION_ACTIVE);
         triggerGripFeedback(data.steps[0].direction);
     } else {
-        speak("无法获取路线");
+        const fallbackError = "无法获取路线";
+        setNavError(fallbackError);
+        speak(fallbackError);
     }
-    setIsLoading(false);
   };
 
   const triggerGripFeedback = (direction: string) => {
@@ -283,6 +297,12 @@ const App: React.FC = () => {
                 <Mic size={18} />
             </button>
         </div>
+        
+        {navError && (
+          <div className="bg-red-50 text-red-700 p-3 rounded-xl text-center text-sm font-bold">
+            {navError}
+          </div>
+        )}
 
         {/* Recent/Favorites */}
         <div className="flex-grow space-y-4 overflow-y-auto no-scrollbar pb-28">
