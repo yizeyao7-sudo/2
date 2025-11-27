@@ -1,10 +1,30 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+// Lazy initialization of the GoogleGenAI client
+function getAiInstance(): GoogleGenAI {
+    if (ai) {
+        return ai;
+    }
+    
+    const apiKey = process.env.API_KEY;
+
+    if (!apiKey) {
+        // This will prevent the app from crashing on load if the key is missing on Vercel.
+        // The error will only be thrown when an API call is attempted.
+        console.error("API_KEY environment variable not found. AI features will be disabled.");
+        throw new Error("API_KEY environment variable not found.");
+    }
+
+    ai = new GoogleGenAI({ apiKey });
+    return ai;
+}
 
 export const getWalkingDirections = async (destination: string): Promise<any> => {
   try {
-    const response = await ai.models.generateContent({
+    const genAI = getAiInstance();
+    const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `我是一名视障用户，正步行前往：${destination}。请提供3-5条清晰、简单的步行导航指令，模拟从我当前位置出发（假设一个通用的城市环境）。请用中文回答。`,
       config: {
@@ -43,12 +63,14 @@ export const getWalkingDirections = async (destination: string): Promise<any> =>
 
 export const getVisualDescription = async (context: string): Promise<string> => {
    try {
-    const response = await ai.models.generateContent({
+    const genAI = getAiInstance();
+    const response = await genAI.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `根据这个上下文为盲人用户描述周围环境：${context}。请用中文回答，保持在20个字以内。`,
     });
     return response.text || "暂无描述。";
   } catch (error) {
+    console.error("Gemini Error:", error);
     return "服务不可用。";
   }
 }
