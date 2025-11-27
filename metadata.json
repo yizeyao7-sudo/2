@@ -1,0 +1,8 @@
+{
+  "name": "SmartCane Connect",
+  "description": "A high-contrast, accessibility-first companion app for the Smart White Cane with inflatable grip feedback.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
